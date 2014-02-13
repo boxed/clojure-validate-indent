@@ -1,11 +1,3 @@
-Validate Indent
-===============
-
-`validate-indent` is a clojure program to validate indents in clojure source code. Example:
-
-We have a file that looks like this:
-
-```clojure
 (defn filter-out-paren [s]
  (let [result (ref [])
        state (ref :clojure)
@@ -40,6 +32,3 @@ We have a file that looks like this:
       )
     (ref-set result (apply str @result)))
   @result))
-```
-
-Running `lein run test/file_with_bad_indents.clj` will give the output `test/file_with_bad_indents.clj: 12, 16, 23` to show that those line numbers are the ones I screwed up the indenting on to create the example :P
