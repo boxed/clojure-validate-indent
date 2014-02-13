@@ -16,9 +16,9 @@ We have a file that looks like this:
         :clojure (case x
                    \\ (ref-set state :character-literal)
                    \; (ref-set state :comment)
-           \" (ref-set state :string-literal)
+           \" (ref-set state :string-literal)  ; INCORRECT INDENT!
                    (\( \) \[ \] \{ \} \space) (alter result conj x)
-                   \newline (do ; All this stuff it to make sure the line numbers don't get shifted by multiline string literals
+                   \newline (do 
                               (doseq [l (range @extra-newlines)]
                                 (alter result conj \newline))
                                     (ref-set extra-newlines 0)
@@ -27,12 +27,12 @@ We have a file that looks like this:
          )
         :string-literal (case x
                           \\ (ref-set state :character-literal-in-string)
-                  \" (ref-set state :clojure)
+                  \" (ref-set state :clojure)  ; INCORRECT INDENT!
                           \newline (alter extra-newlines + 1)
                           nil)
         :character-literal (ref-set state :clojure)
         :character-literal-in-string (ref-set state :string-literal)
-  :comment (if (= x \newline)
+  :comment (if (= x \newline)  ; INCORRECT INDENT!
                    (do
                      (ref-set state :clojure)
                      (alter result conj x)))
