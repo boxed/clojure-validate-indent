@@ -13,41 +13,37 @@
       (print "\n"))))
 
 
-
 (defn filter-out-paren [s]
- (let [result (ref [])
-       state (ref :clojure)
-       extra-newlines (ref 0)]
-  (dosync
-    (doseq [x s]
-      (case @state
+  (loop [x (first s)
+         xs (rest s)
+         state :clojure
+         extra-newlines []
+         result []]
+    (if (= x nil)
+      (apply str result) ; we're done!
+      (case state
         :clojure (case x
-                   \\ (ref-set state :character-literal)
-                   \; (ref-set state :comment)
-                   \" (ref-set state :string-literal)
-                   (\( \) \[ \] \{ \} \space) (alter result conj x)
-                   \newline (do ; All this stuff it to make sure the line numbers don't get shifted by multiline string literals
-                              (doseq [l (range @extra-newlines)]
-                                (alter result conj \newline))
-                              (ref-set extra-newlines 0)
-                              (alter result conj x))
-                   (alter result conj x)
+                   \\ (recur (first xs) (rest xs) :character-literal extra-newlines result)
+                   \; (recur (first xs) (rest xs) :comment extra-newlines result)
+                   \" (recur (first xs) (rest xs) :string-literal extra-newlines result)
+                   (\( \) \[ \] \{ \} \space) (recur (first xs) (rest xs) state extra-newlines (conj result x))
+                   \newline (recur (first xs) (rest xs) state [] (apply conj result x extra-newlines))
+                   (recur (first xs) (rest xs) state extra-newlines (conj result x))
                    )
         :string-literal (case x
-                          \\ (ref-set state :character-literal-in-string)
-                          \" (ref-set state :clojure)
-                          \newline (alter extra-newlines + 1)
-                          nil)
-        :character-literal (ref-set state :clojure)
-        :character-literal-in-string (ref-set state :string-literal)
+                          \\ (recur (first xs) (rest xs) :character-literal-in-string extra-newlines result)
+                          \" (recur (first xs) (rest xs) :clojure extra-newlines result)
+                          \newline (recur (first xs) (rest xs) state (conj extra-newlines \newline) result)
+                          (recur (first xs) (rest xs) state extra-newlines result)
+                          )
+        :character-literal (recur (first xs) (rest xs) :clojure extra-newlines result)
+        :character-literal-in-string (recur (first xs) (rest xs) :string-literal extra-newlines result)
         :comment (if (= x \newline)
-                   (do
-                     (ref-set state :clojure)
-                     (alter result conj x)))
+                   (recur (first xs) (rest xs) :clojure extra-newlines (conj result x))
+                   (recur (first xs) (rest xs) state extra-newlines result))
+        (recur (first xs) (rest xs) state extra-newlines result)
         )
-      )
-    (ref-set result (apply str @result)))
-  @result))
+      )))
 
 (defn count-char [ch s]
   (count (for [x s :when (= x ch)] 1)))
