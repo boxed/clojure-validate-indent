@@ -13,37 +13,41 @@
       (print "\n"))))
 
 
+(defmulti handle-char (fn [{pstate :pstate} _] pstate))
+
+(defmethod handle-char :clojure [{:keys [extra-newlines] :as st} ch]
+  (case ch
+    \\ (assoc st :pstate :character-literal)
+    \; (assoc st :pstate :comment)
+    \" (assoc st :pstate :string-literal)
+    \newline (-> st
+                 (assoc :extra-newlines [])
+                 (update-in [:result] (partial apply conj) ch extra-newlines))
+    (update-in st [:result] conj ch)))
+
+(defmethod handle-char :string-literal [st ch]
+  (case ch
+    \\  (assoc st :pstate :character-literal-in-string)
+    \" (assoc st :pstate :clojure)
+    \newline (update-in st [:extra-newlines] conj \newline)
+    st))
+
+(defmethod handle-char :character-literal [st ch]
+  (assoc st :pstate :clojure))
+
+(defmethod handle-char :character-literal-in-string [st ch]
+  (assoc st :pstate :string-literal))
+
+(defmethod handle-char :comment [{:keys [extra-newlines result] :as st} ch]
+  (if (= ch \newline)
+   (-> st (assoc :pstate :clojure) (update-in [:result] conj ch))
+   st))
+
+(defmethod handle-char :default [st ch]
+  st)
+
 (defn filter-out-paren [s]
-  (loop [x (first s)
-         xs (rest s)
-         state :clojure
-         extra-newlines []
-         result []]
-    (if (= x nil)
-      (apply str result) ; we're done!
-      (case state
-        :clojure (case x
-                   \\ (recur (first xs) (rest xs) :character-literal extra-newlines result)
-                   \; (recur (first xs) (rest xs) :comment extra-newlines result)
-                   \" (recur (first xs) (rest xs) :string-literal extra-newlines result)
-                   (\( \) \[ \] \{ \} \space) (recur (first xs) (rest xs) state extra-newlines (conj result x))
-                   \newline (recur (first xs) (rest xs) state [] (apply conj result x extra-newlines))
-                   (recur (first xs) (rest xs) state extra-newlines (conj result x))
-                   )
-        :string-literal (case x
-                          \\ (recur (first xs) (rest xs) :character-literal-in-string extra-newlines result)
-                          \" (recur (first xs) (rest xs) :clojure extra-newlines result)
-                          \newline (recur (first xs) (rest xs) state (conj extra-newlines \newline) result)
-                          (recur (first xs) (rest xs) state extra-newlines result)
-                          )
-        :character-literal (recur (first xs) (rest xs) :clojure extra-newlines result)
-        :character-literal-in-string (recur (first xs) (rest xs) :string-literal extra-newlines result)
-        :comment (if (= x \newline)
-                   (recur (first xs) (rest xs) :clojure extra-newlines (conj result x))
-                   (recur (first xs) (rest xs) state extra-newlines result))
-        (recur (first xs) (rest xs) state extra-newlines result)
-        )
-      )))
+  (apply str (:result (reduce handle-char {:pstate :clojure, :extra-newlines [], :result []} s))))
 
 (defn count-char [ch s]
   (count (for [x s :when (= x ch)] 1)))
