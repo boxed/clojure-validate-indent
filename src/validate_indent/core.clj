@@ -43,9 +43,6 @@
    (-> st (assoc :pstate :clojure) (update-in [:result] conj ch))
    st))
 
-(defmethod handle-char :default [st ch]
-  st)
-
 (defn filter-out-paren [s]
   (apply str (:result (reduce handle-char {:pstate :clojure, :extra-newlines [], :result []} s))))
 
