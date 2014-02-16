@@ -108,10 +108,8 @@
 (defn handle-empty-lines [xs]
   (reverse (fill-empty-lines-to-the-right (reverse xs))))
 
-(defn bigger-than [p]
-  (let [x (p 0)
-        y (p 1)]
-      (> x y)))
+(defn bigger-than [[x y]]
+  (> x y))
 
 (defn bigger-than-prev [xs-in]
   (let [xs (handle-empty-lines xs-in)]
@@ -123,8 +121,6 @@
         expected (expected-indents-for-lines lines)
         x (bigger-than-prev found)
         y (bigger-than-prev expected)]
-    (for [w (enumerate (zip x y)) :when (or
-                                         (apply not= (w 1))
-                                         (= ((w 1) 1) :empty-line))]
-      (let [line-number (+ (w 0) 1)] ; Add one to make it 1-based indexes
+    (for [[i w] (enumerate (zip x y)) :when (or (apply not= w) (= (w 1) :empty-line))]
+      (let [line-number (+ i 1)] ; Add one to make it 1-based indexes
         line-number))))
