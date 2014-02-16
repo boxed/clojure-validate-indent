@@ -2,15 +2,28 @@
   (:gen-class))
 
 (def find-indent-problems)
+(def find-tab-problems)
+(def lines)
+
+(defn print-indent-problems-for-file [file]
+  (let [lines (lines (slurp file))]
+    (let [indent-problems (find-indent-problems lines)
+          tab-problems (find-tab-problems lines)]
+      (if (not= (count tab-problems) 0)
+        (print (format "tab problems for file %s: %s\n" file (clojure.string/join ", " tab-problems)))
+        (if (not= (count indent-problems) 0)
+          (print (format "%s: %s\n" file (clojure.string/join ", " indent-problems))))))))
 
 (defn -main [& args]
   (if (= args nil)
     (print "Usage: lein run <file1> <file2>\n")
     (doseq [arg args]
-      (let [indent-problems (find-indent-problems (slurp arg))]
-        (if (not= (count indent-problems) 0)
-          (print (format "%s: %s" arg (clojure.string/join ", " indent-problems)))))
-      (print "\n"))))
+      (let [f (clojure.java.io/file arg)]
+        (if (.isDirectory f)
+          (doseq [file (file-seq f)]
+            (if (and (.isFile file) (.endsWith (.getName file) ".clj"))
+              (print-indent-problems-for-file file)))
+          (print-indent-problems-for-file arg))))))
 
 
 (defmulti handle-char (fn [{pstate :pstate} _] pstate))
@@ -20,6 +33,7 @@
     \\ (assoc st :pstate :character-literal)
     \; (assoc st :pstate :comment)
     \" (assoc st :pstate :string-literal)
+    \tab (do (update-in [:result] \space) (update-in [:result] \space)) ; Interpret tab as two spaces
     \newline (-> st
                  (assoc :extra-newlines [])
                  (update-in [:result] (partial apply conj) ch extra-newlines))
@@ -27,7 +41,7 @@
 
 (defmethod handle-char :string-literal [st ch]
   (case ch
-    \\  (assoc st :pstate :character-literal-in-string)
+    \\ (assoc st :pstate :character-literal-in-string)
     \" (assoc st :pstate :clojure)
     \newline (update-in st [:extra-newlines] conj \newline)
     st))
@@ -81,15 +95,13 @@
     (count (take-while (partial = \space) line))))
 
 (defn found-indents-for-lines [lines]
-  (map found-indents-for-line lines))
+  (concat (map found-indents-for-line lines) [0]))
 
-(defn zip
-  [& colls]
+(defn zip [& colls]
   (apply map vector colls))
 
 (defn enumerate [x]
   (zip (range (count x)) x))
-
 
 (defn fill-empty-lines-to-the-right [xs]
   (for [i (range (count xs))]
@@ -106,7 +118,6 @@
 
 (defn non-empty-line-after [index xs]
   (let [splice (drop (+ index 1) xs)]
-    (prn splice)
     (for [x splice :when (not= x :empty-line)] x)))
 
 (defn bigger-than-prev [xs-in]
@@ -114,9 +125,16 @@
     (concat '(false) (for [w (zip (drop 1 xs) xs)]
                        (bigger-than w)))))
 
-(defn find-indent-problems [test-data]
-  (let [found (found-indents-for-lines (lines test-data))
-        expected (expected-indents-for-lines (lines test-data))
+(defn find-tab-problems [lines]
+  (filter boolean
+          (for [w (enumerate lines)]
+            (if (.startsWith (w 1) "\t")
+              (+ (w 0) 1)
+              false))))
+
+(defn find-indent-problems [lines]
+  (let [found (found-indents-for-lines lines)
+        expected (expected-indents-for-lines lines)
         x (bigger-than-prev found)
         y (bigger-than-prev expected)]
     (for [w (enumerate (zip x y)) :when (or

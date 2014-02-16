@@ -71,21 +71,25 @@
 
  (expected-indents-for-lines (lines test-data)) => '(0 1 1 1 2 1 1 2 2 2 2 2 1 1 1 1 1 0)
 
+ (found-indents-for-line "") => :empty-line
  (found-indents-for-line "   ") => :empty-line
- (found-indents-for-lines (lines test-data)) => '(0 2 2 2 12 2 2 17 17 17 17 17 2 2 2 2 2)
+ (found-indents-for-lines (lines test-data)) => '(0 2 2 2 12 2 2 17 17 17 17 17 2 2 2 2 2 0)
 
  (zip [1 2 3] [4 5 6]) => '([1 4] [2 5] [3 6])
+ (zip [1 2 3] [4 5 6 7 8]) => '([1 4] [2 5] [3 6])
+ (zip [1 2 3 7 8 9] [4 5 6]) => '([1 4] [2 5] [3 6])
 
  (enumerate [:a :b :c]) => '([0 :a] [1 :b] [2 :c])
 
  (fill-empty-lines-to-the-right [1 2 :empty-line :empty-line 3]) => [1 2 2 2 3]
+ (fill-empty-lines-to-the-right [1 2 :empty-line :empty-line :empty-line]) => [1 2 2 2 2]
  (handle-empty-lines [1 2 :empty-line :empty-line 3]) => [1 2 3 3 3]
 
  (bigger-than-prev [1 2 3]) => [false true true]
  (bigger-than-prev [3 2 1]) => [false false false]
  (bigger-than-prev [1 2 :empty-line 3]) => [false true true false]
  (bigger-than-prev [1 2 :empty-line :empty-line 3]) => [false true true false false]
- (bigger-than-prev (found-indents-for-lines (lines test-data))) => '(false true false false true false false true false false false false false false false false false)
+ (bigger-than-prev (found-indents-for-lines (lines test-data))) => '(false true false false true false false true false false false false false false false false false false)
  (bigger-than-prev (expected-indents-for-lines (lines test-data)))  => '(false true false false true false false true false false false false false false false false false false)
  )
 
@@ -96,7 +100,7 @@
 ")
 
 (fact
- (find-indent-problems test-data-foo) => []
+ (find-indent-problems (lines test-data-foo)) => []
  )
 
 (def test-data3 "(defproject cljtest \"0.1.0-SNAPSHOT
@@ -121,12 +125,17 @@
 ")
 
 (fact
- (find-indent-problems test-data3) => [11 13]
+ (find-indent-problems (lines test-data3)) => [11 13]
  )
 
 (def test-data2 (slurp path-to-this-file))
 
 (fact
- (find-indent-problems test-data2) => []
- )
+ (find-indent-problems (lines test-data2)) => []
+ (found-indents-for-lines (lines "\n  \n")) => [:empty-line :empty-line 0]
+ (expected-indents-for-lines (lines "\n  \n")) => [0 0 0]
+ (find-indent-problems (lines "\n  \n")) => []
 
+ (find-tab-problems ["\tfoo"]) => [1]
+ (find-tab-problems ["" "\tfoo"]) => [2]
+ )
