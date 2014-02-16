@@ -7,6 +7,7 @@
  (handle-char {:pstate :clojure, :extra-newlines [], :result []} \() => {:pstate :clojure, :extra-newlines [], :result [\(]}
  (handle-char {:pstate :clojure, :extra-newlines [], :result [\(]} \;) => {:pstate :comment, :extra-newlines [], :result [\(]}
  (reduce handle-char {:pstate :clojure, :extra-newlines [], :result []} "foo") => {:extra-newlines [], :pstate :clojure, :result [\f \o \o]}
+ (handle-char {:pstate :clojure, :extra-newlines [], :result []} \tab) => {:pstate :clojure, :extra-newlines [], :result [\space \space]}
  (filter-out-paren "foo") => "foo"
  (filter-out-paren "(foo (bar ;asd\n  (asd);bar\n  ))") => "(foo (bar \n  (asd)\n  ))"
  (filter-out-paren "(foo (bar ;asd\n\"(asd);bar\n  \"))\n") => "(foo (bar \n))\n\n"

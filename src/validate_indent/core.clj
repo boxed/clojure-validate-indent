@@ -6,13 +6,11 @@
 (def lines)
 
 (defn print-indent-problems-for-file [file]
-  (let [lines (lines (slurp file))]
-    (let [indent-problems (find-indent-problems lines)
-          tab-problems (find-tab-problems lines)]
-      (if (not= (count tab-problems) 0)
-        (print (format "tab problems for file %s: %s\n" file (clojure.string/join ", " tab-problems)))
-        (if (not= (count indent-problems) 0)
-          (print (format "%s: %s\n" file (clojure.string/join ", " indent-problems))))))))
+  (let [content (slurp file)
+        lines (lines content)]
+    (let [indent-problems (find-indent-problems lines)]
+      (if (not= (count indent-problems) 0)
+        (print (format "%s: %s\n" file (clojure.string/join ", " indent-problems)))))))
 
 (defn -main [& args]
   (if (= args nil)
@@ -30,10 +28,10 @@
 
 (defmethod handle-char :clojure [{:keys [extra-newlines] :as st} ch]
   (case ch
-    \\ (assoc st :pstate :character-literal)
+    \\ (assoc (update-in st [:result] conj \_) :pstate :character-literal)  ; Replacing literal with _ to get correct indent for lines that start with a character literal
     \; (assoc st :pstate :comment)
-    \" (assoc st :pstate :string-literal)
-    \tab (do (update-in [:result] \space) (update-in [:result] \space)) ; Interpret tab as two spaces
+    \" (assoc (update-in st [:result] conj \_) :pstate :string-literal) ; Replacing " with _ to get correct indent for lines that start with a string literal
+    \tab (update-in (update-in st [:result] conj \space) [:result] conj \space) ; Interpret tab as two spaces
     \newline (-> st
                  (assoc :extra-newlines [])
                  (update-in [:result] (partial apply conj) ch extra-newlines))
@@ -124,13 +122,6 @@
   (let [xs (handle-empty-lines xs-in)]
     (concat '(false) (for [w (zip (drop 1 xs) xs)]
                        (bigger-than w)))))
-
-(defn find-tab-problems [lines]
-  (filter boolean
-          (for [w (enumerate lines)]
-            (if (.startsWith (w 1) "\t")
-              (+ (w 0) 1)
-              false))))
 
 (defn find-indent-problems [lines]
   (let [found (found-indents-for-lines lines)
