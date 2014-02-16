@@ -2,7 +2,6 @@
   (:gen-class))
 
 (def find-indent-problems)
-(def find-tab-problems)
 (def lines)
 
 (defn print-indent-problems-for-file [file]
@@ -113,10 +112,6 @@
   (let [x (p 0)
         y (p 1)]
       (> x y)))
-
-(defn non-empty-line-after [index xs]
-  (let [splice (drop (+ index 1) xs)]
-    (for [x splice :when (not= x :empty-line)] x)))
 
 (defn bigger-than-prev [xs-in]
   (let [xs (handle-empty-lines xs-in)]

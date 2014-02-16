@@ -1,17 +1,42 @@
 (ns validate-indent.core-test
   (:use midje.sweet)
-  (:require [validate-indent.core :refer :all]
-            ))
+  (:use clojure.test)
+  (:require [validate-indent.core :refer :all]))
 
-(fact
- (handle-char {:pstate :clojure, :extra-newlines [], :result []} \() => {:pstate :clojure, :extra-newlines [], :result [\(]}
- (handle-char {:pstate :clojure, :extra-newlines [], :result [\(]} \;) => {:pstate :comment, :extra-newlines [], :result [\(]}
- (reduce handle-char {:pstate :clojure, :extra-newlines [], :result []} "foo") => {:extra-newlines [], :pstate :clojure, :result [\f \o \o]}
- (handle-char {:pstate :clojure, :extra-newlines [], :result []} \tab) => {:pstate :clojure, :extra-newlines [], :result [\space \space]}
- (filter-out-paren "foo") => "foo"
- (filter-out-paren "(foo (bar ;asd\n  (asd);bar\n  ))") => "(foo (bar \n  (asd)\n  ))"
- (filter-out-paren "(foo (bar ;asd\n\"(asd);bar\n  \"))\n") => "(foo (bar \n))\n\n"
- )
+(def path-to-this-file
+  (clojure.string/join "/" [
+                            (-> (ClassLoader/getSystemResource *file*) clojure.java.io/file .getParent)
+                            (last (clojure.string/split *file* #"/"))]))
+
+(def test-data-foo "(def test-data-multiline-string \"asd\\\"
+  asdasd
+  asdadas\\\" adsasda
+  asd\")
+")
+
+
+(def test-data3 "(defproject cljtest \"0.1.0-SNAPSHOT
+
+  \"
+  :description \"FIXME: write description\"
+  :url \"http://example.com/FIXME\"
+  :license {:name \"Eclipse Public License\"
+            :url \"http://www.eclipse.org/legal/epl-v10.html\"}
+  :plugins [[lein-git-deps \"0.0.1-SNAPSHOT\"]]
+  :dependencies [
+             [org.clojure/clojure \"1.5.1\"]
+                 [bond \"0.2.5\"]
+       [midje \"1.6.0\"]
+                     [org.clojure/tools.reader \"0.8.3\"]
+                 ]
+  :git-dependencies [[\"https://github.com/cgrand/sjacket.git\"]]
+  :source-paths [\"src\", \".lein-git-deps/sjacket/src/\"]
+  :main ^:skip-aot cljtest.core
+  :target-path \"target/%s\"
+  :profiles {:uberjar {:aot :all}})
+")
+
+(def test-data2 (slurp path-to-this-file))
 
 (def test-data-multiline-string "asd\"
   asdasd
@@ -20,18 +45,6 @@
 
 (def test-data-multiline-string2
   "(def test-data \"(defproject cljtest \\\"0.1.0-SNAPSHOT\\\"\"")
-
-(fact
- (filter-out-paren "\"fooo\"") => ""
- (filter-out-paren "\"fo\\\"oo\"") => ""
- (filter-out-paren "\"fo\noo\"") => ""
- (filter-out-paren test-data-multiline-string2) => "(def test-data "
- )
-
-(def path-to-this-file
-  (clojure.string/join "/" [
-                            (-> (ClassLoader/getSystemResource *file*) clojure.java.io/file .getParent)
-                            (last (clojure.string/split *file* #"/"))]))
 
 (def test-data "(defproject cljtest \"0.1.0SNAPSHOT\"
   :description \"FIXME: write description\"
@@ -52,11 +65,22 @@
   :profiles {:uberjar {:aot :all}})
 ")
 
-(fact
+(deftest tests (fact
+ (handle-char {:pstate :clojure, :extra-newlines [], :result []} \() => {:pstate :clojure, :extra-newlines [], :result [\(]}
+ (handle-char {:pstate :clojure, :extra-newlines [], :result [\(]} \;) => {:pstate :comment, :extra-newlines [], :result [\(]}
+ (reduce handle-char {:pstate :clojure, :extra-newlines [], :result []} "foo") => {:extra-newlines [], :pstate :clojure, :result [\f \o \o]}
+ (handle-char {:pstate :clojure, :extra-newlines [], :result []} \tab) => {:pstate :clojure, :extra-newlines [], :result [\space \space]}
+ (filter-out-paren "foo") => "foo"
+ (filter-out-paren "(foo (bar ;asd\n  (asd);bar\n  ))") => "(foo (bar \n  (asd)\n  ))"
+ (filter-out-paren "(foo (bar ;asd\n\"(asd);bar\n  \"))\n") => "(foo (bar \n_))\n\n"
+ (filter-out-paren "\"fooo\"") => "_"
+ (filter-out-paren "\"fo\\\"oo\"") => "_"
+ (filter-out-paren "\"fo\noo\"") => "_"
+ (filter-out-paren test-data-multiline-string2) => "(def test-data _"
  (filter-out-paren "(defproject cljtest \"0.1.0SNAPSHOT\"\n  :description \"FIXME: write description\"")
- => "(defproject cljtest \n  :description "
+ => "(defproject cljtest _\n  :description _"
 
- ((lines test-data) 0) => "(defproject cljtest "
+ ((lines test-data) 0) => "(defproject cljtest _"
 
 
  (count-char \( "(( )) asd") => 2
@@ -92,51 +116,11 @@
  (bigger-than-prev [1 2 :empty-line :empty-line 3]) => [false true true false false]
  (bigger-than-prev (found-indents-for-lines (lines test-data))) => '(false true false false true false false true false false false false false false false false false false)
  (bigger-than-prev (expected-indents-for-lines (lines test-data)))  => '(false true false false true false false true false false false false false false false false false false)
- )
 
-(def test-data-foo "(def test-data-multiline-string \"asd\\\"
-  asdasd
-  asdadas\\\" adsasda
-  asd\")
-")
-
-(fact
  (find-indent-problems (lines test-data-foo)) => []
- )
-
-(def test-data3 "(defproject cljtest \"0.1.0-SNAPSHOT
-
-  \"
-  :description \"FIXME: write description\"
-  :url \"http://example.com/FIXME\"
-  :license {:name \"Eclipse Public License\"
-            :url \"http://www.eclipse.org/legal/epl-v10.html\"}
-  :plugins [[lein-git-deps \"0.0.1-SNAPSHOT\"]]
-  :dependencies [
-             [org.clojure/clojure \"1.5.1\"]
-                 [bond \"0.2.5\"]
-       [midje \"1.6.0\"]
-                     [org.clojure/tools.reader \"0.8.3\"]
-                 ]
-  :git-dependencies [[\"https://github.com/cgrand/sjacket.git\"]]
-  :source-paths [\"src\", \".lein-git-deps/sjacket/src/\"]
-  :main ^:skip-aot cljtest.core
-  :target-path \"target/%s\"
-  :profiles {:uberjar {:aot :all}})
-")
-
-(fact
  (find-indent-problems (lines test-data3)) => [11 13]
- )
-
-(def test-data2 (slurp path-to-this-file))
-
-(fact
  (find-indent-problems (lines test-data2)) => []
  (found-indents-for-lines (lines "\n  \n")) => [:empty-line :empty-line 0]
  (expected-indents-for-lines (lines "\n  \n")) => [0 0 0]
  (find-indent-problems (lines "\n  \n")) => []
-
- (find-tab-problems ["\tfoo"]) => [1]
- (find-tab-problems ["" "\tfoo"]) => [2]
- )
+ ))
